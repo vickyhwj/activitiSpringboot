@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:activiti="http://activiti.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" typeLanguage="http://www.w3.org/2001/XMLSchema" expressionLanguage="http://www.w3.org/1999/XPath" targetNamespace="http://www.activiti.org/test">
+  <process id="leaveFlow" name="请假流程" isExecutable="true">
+    <startEvent id="startEvent" name="开始请假流程" activiti:initiator="applyUserId">
+      <extensionElements>
+        <activiti:executionListener event="start" class="com.oa.workflowlistener.FlowStartListener"></activiti:executionListener>
+      </extensionElements>
+    </startEvent>
+    <userTask id="fillDetail" name="填写请假信息" activiti:assignee="${applyUserId}"></userTask>
+    <sequenceFlow id="flow1" sourceRef="startEvent" targetRef="fillDetail"></sequenceFlow>
+    <userTask id="checkTask" name="审批任务" activiti:assignee="${user}">
+      <extensionElements>
+        <activiti:taskListener event="assignment" class="com.oa.workflowlistener.FlowCheckTaskListener"></activiti:taskListener>
+        <activiti:taskListener event="complete" class="com.oa.workflowlistener.FlowCheckTaskAfterListener"></activiti:taskListener>
+      </extensionElements>
+      <multiInstanceLoopCharacteristics isSequential="true" activiti:collection="${users}" activiti:elementVariable="user">
+        <completionCondition>${nrOfActiveInstances ==0||approve==false}</completionCondition>
+      </multiInstanceLoopCharacteristics>
+    </userTask>
+    <sequenceFlow id="flow2" sourceRef="fillDetail" targetRef="checkTask">
+      <extensionElements>
+        <activiti:executionListener event="take" expression="${execution.setVariable('approve',true)}"></activiti:executionListener>
+      </extensionElements>
+    </sequenceFlow>
+    <exclusiveGateway id="exclusivegateway1" name="Exclusive Gateway"></exclusiveGateway>
+    <sequenceFlow id="flow3" sourceRef="checkTask" targetRef="exclusivegateway1"></sequenceFlow>
+    <endEvent id="successEnd" name="请假成功">
+      <extensionElements>
+        <activiti:executionListener event="end" class="com.oa.workflowlistener.HrRecordFlowStartListener"></activiti:executionListener>
+        <activiti:executionListener event="end" class="com.oa.workflowlistener.FlowEndListener"></activiti:executionListener>
+      </extensionElements>
+    </endEvent>
+    <sequenceFlow id="flow4" sourceRef="exclusivegateway1" targetRef="successEnd">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${hasNext==false&&approve==true}]]></conditionExpression>
+    </sequenceFlow>
+    <userTask id="continueTask" name="是否继续申请" activiti:assignee="${applyUserId}"></userTask>
+    <sequenceFlow id="flow5" sourceRef="exclusivegateway1" targetRef="continueTask">
+      <extensionElements>
+        <activiti:executionListener event="take" class="com.oa.workflowlistener.FlowContinueListener"></activiti:executionListener>
+      </extensionElements>
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${approve==false}]]></conditionExpression>
+    </sequenceFlow>
+    <exclusiveGateway id="exclusivegateway2" name="Exclusive Gateway"></exclusiveGateway>
+    <sequenceFlow id="flow6" sourceRef="continueTask" targetRef="exclusivegateway2"></sequenceFlow>
+    <endEvent id="failEnd" name="请假失败"></endEvent>
+    <sequenceFlow id="flow7" sourceRef="exclusivegateway2" targetRef="failEnd">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${continue==false}]]></conditionExpression>
+    </sequenceFlow>
+    <userTask id="editDetail" name="调整请假信息" activiti:assignee="${applyUserId}"></userTask>
+    <sequenceFlow id="flow8" sourceRef="exclusivegateway2" targetRef="editDetail">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${continue==true}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow9" sourceRef="editDetail" targetRef="checkTask">
+      <extensionElements>
+        <activiti:executionListener event="take" expression="${execution.setVariable('approve',true)}"></activiti:executionListener>
+        <activiti:executionListener event="take" class="com.oa.workflowlistener.RoundAddListener"></activiti:executionListener>
+      </extensionElements>
+    </sequenceFlow>
+    <userTask id="nextCheckTask" name="下一审核任务" activiti:assignee="${nextChecker}">
+      <extensionElements>
+        <activiti:taskListener event="complete" class="com.oa.workflowlistener.FlowCheckTaskAfterListener"></activiti:taskListener>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="flow10" sourceRef="exclusivegateway1" targetRef="nextCheckTask">
+      <extensionElements>
+        <activiti:executionListener event="take" class="com.oa.workflowlistener.NextCheckerListener"></activiti:executionListener>
+      </extensionElements>
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${hasNext==true&&approve==true}]]></conditionExpression>
+    </sequenceFlow>
+    <exclusiveGateway id="exclusivegateway3" name="Exclusive Gateway"></exclusiveGateway>
+    <sequenceFlow id="flow11" sourceRef="nextCheckTask" targetRef="exclusivegateway3"></sequenceFlow>
+    <sequenceFlow id="flow12" sourceRef="exclusivegateway3" targetRef="nextCheckTask">
+      <extensionElements>
+        <activiti:executionListener event="take" class="com.oa.workflowlistener.NextCheckerListener"></activiti:executionListener>
+      </extensionElements>
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${hasNext==true&&approve==true}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow13" sourceRef="exclusivegateway3" targetRef="successEnd">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${hasNext==false&&approve==true}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow14" sourceRef="exclusivegateway3" targetRef="continueTask">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${approve==false}]]></conditionExpression>
+    </sequenceFlow>
+  </process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_leaveFlow">
+    <bpmndi:BPMNPlane bpmnElement="leaveFlow" id="BPMNPlane_leaveFlow">
+      <bpmndi:BPMNShape bpmnElement="startEvent" id="BPMNShape_startEvent">
+        <omgdc:Bounds height="35.0" width="35.0" x="80.0" y="40.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="fillDetail" id="BPMNShape_fillDetail">
+        <omgdc:Bounds height="55.0" width="105.0" x="40.0" y="94.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="checkTask" id="BPMNShape_checkTask">
+        <omgdc:Bounds height="55.0" width="105.0" x="174.0" y="60.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="exclusivegateway1" id="BPMNShape_exclusivegateway1">
+        <omgdc:Bounds height="40.0" width="40.0" x="520.0" y="55.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="successEnd" id="BPMNShape_successEnd">
+        <omgdc:Bounds height="35.0" width="35.0" x="774.0" y="77.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="continueTask" id="BPMNShape_continueTask">
+        <omgdc:Bounds height="55.0" width="105.0" x="670.0" y="296.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="exclusivegateway2" id="BPMNShape_exclusivegateway2">
+        <omgdc:Bounds height="40.0" width="40.0" x="480.0" y="410.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="failEnd" id="BPMNShape_failEnd">
+        <omgdc:Bounds height="35.0" width="35.0" x="144.0" y="430.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="editDetail" id="BPMNShape_editDetail">
+        <omgdc:Bounds height="55.0" width="105.0" x="50.0" y="276.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="nextCheckTask" id="BPMNShape_nextCheckTask">
+        <omgdc:Bounds height="55.0" width="105.0" x="264.0" y="160.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="exclusivegateway3" id="BPMNShape_exclusivegateway3">
+        <omgdc:Bounds height="40.0" width="40.0" x="363.0" y="255.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="flow1" id="BPMNEdge_flow1">
+        <omgdi:waypoint x="97.0" y="75.0"></omgdi:waypoint>
+        <omgdi:waypoint x="92.0" y="94.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow2" id="BPMNEdge_flow2">
+        <omgdi:waypoint x="145.0" y="121.0"></omgdi:waypoint>
+        <omgdi:waypoint x="174.0" y="87.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow3" id="BPMNEdge_flow3">
+        <omgdi:waypoint x="279.0" y="87.0"></omgdi:waypoint>
+        <omgdi:waypoint x="520.0" y="75.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow4" id="BPMNEdge_flow4">
+        <omgdi:waypoint x="560.0" y="75.0"></omgdi:waypoint>
+        <omgdi:waypoint x="774.0" y="94.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow5" id="BPMNEdge_flow5">
+        <omgdi:waypoint x="540.0" y="95.0"></omgdi:waypoint>
+        <omgdi:waypoint x="722.0" y="296.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow6" id="BPMNEdge_flow6">
+        <omgdi:waypoint x="722.0" y="351.0"></omgdi:waypoint>
+        <omgdi:waypoint x="500.0" y="410.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow7" id="BPMNEdge_flow7">
+        <omgdi:waypoint x="480.0" y="430.0"></omgdi:waypoint>
+        <omgdi:waypoint x="179.0" y="447.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow8" id="BPMNEdge_flow8">
+        <omgdi:waypoint x="500.0" y="410.0"></omgdi:waypoint>
+        <omgdi:waypoint x="102.0" y="331.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow9" id="BPMNEdge_flow9">
+        <omgdi:waypoint x="102.0" y="276.0"></omgdi:waypoint>
+        <omgdi:waypoint x="226.0" y="115.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow10" id="BPMNEdge_flow10">
+        <omgdi:waypoint x="540.0" y="95.0"></omgdi:waypoint>
+        <omgdi:waypoint x="316.0" y="160.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow11" id="BPMNEdge_flow11">
+        <omgdi:waypoint x="369.0" y="187.0"></omgdi:waypoint>
+        <omgdi:waypoint x="370.0" y="195.0"></omgdi:waypoint>
+        <omgdi:waypoint x="446.0" y="178.0"></omgdi:waypoint>
+        <omgdi:waypoint x="383.0" y="255.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow12" id="BPMNEdge_flow12">
+        <omgdi:waypoint x="383.0" y="255.0"></omgdi:waypoint>
+        <omgdi:waypoint x="316.0" y="215.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow13" id="BPMNEdge_flow13">
+        <omgdi:waypoint x="383.0" y="255.0"></omgdi:waypoint>
+        <omgdi:waypoint x="791.0" y="112.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow14" id="BPMNEdge_flow14">
+        <omgdi:waypoint x="403.0" y="275.0"></omgdi:waypoint>
+        <omgdi:waypoint x="722.0" y="296.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
